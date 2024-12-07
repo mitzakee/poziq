@@ -2,12 +2,78 @@ import pytest
 from PIL import Image
 
 from poziq import cli
+from .fixtures import sample_image, sample_slices, temp_dir
 
-from .test_image import sample_slices, temp_dir
+
+class TestSliceCliCommand:
+    """Test suite for slice command CLI interface."""
+
+    def test_slice_grid_mode_cli(self, temp_dir, sample_image, runner):
+        """Test CLI slicing with grid parameters."""
+        output_dir = temp_dir / "slices"
+        result = runner.invoke(
+            cli.cli,
+            ["slice", str(sample_image), str(output_dir), "--rows", "2", "--cols", "3"],
+        )
+
+        assert result.exit_code == 0
+        assert "Successfully sliced" in result.output
+        assert len(list(output_dir.glob("*.png"))) == 6
+
+    def test_slice_dimensions_mode_cli(self, temp_dir, sample_image, runner):
+        """Test CLI slicing with dimension parameters."""
+        output_dir = temp_dir / "slices"
+        result = runner.invoke(
+            cli.cli,
+            [
+                "slice",
+                str(sample_image),
+                str(output_dir),
+                "--slice-width",
+                "100",
+                "--slice-height",
+                "150",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Successfully sliced" in result.output
+        assert all(Image.open(p).size == (100, 150) for p in output_dir.glob("*.png"))
+
+    def test_slice_missing_parameters(self, temp_dir, sample_image, runner):
+        """Test CLI error handling with missing parameters."""
+        output_dir = temp_dir / "slices"
+        result = runner.invoke(cli.cli, ["slice", str(sample_image), str(output_dir)])
+
+        assert result.exit_code != 0
+        assert "Must specify either" in result.output
+
+    def test_slice_custom_prefix_extension(self, temp_dir, sample_image, runner):
+        """Test CLI with custom prefix and extension."""
+        output_dir = temp_dir / "slices"
+        result = runner.invoke(
+            cli.cli,
+            [
+                "slice",
+                str(sample_image),
+                str(output_dir),
+                "--rows",
+                "2",
+                "--cols",
+                "2",
+                "--prefix",
+                "custom",
+                "--extension",
+                "webp",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert len(list(output_dir.glob("custom_*.webp"))) == 4
 
 
-class TestCLI:
-    """Test suite for CLI functionality."""
+class TestAssembleCliCommand:
+    """Test suite for assemble command CLI interface."""
 
     def test_cli_success(self, temp_dir, sample_slices, runner):
         """Test successful CLI execution."""
