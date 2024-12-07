@@ -12,6 +12,14 @@ def temp_dir():
 
 
 @pytest.fixture
+def runner():
+    """Create a CLI test runner."""
+    from click.testing import CliRunner
+
+    return CliRunner()
+
+
+@pytest.fixture
 def sample_image(temp_dir):
     """Create a sample image for slicing tests."""
     # Create test image with a gradient pattern for easy visual verification

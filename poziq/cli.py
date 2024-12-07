@@ -4,6 +4,7 @@ from typing import Union
 import click
 
 from . import image
+from . import encoder
 
 
 @click.group()
@@ -142,6 +143,79 @@ def assemble(
         raise click.Abort()
     except OSError as e:
         click.echo(f"Error: Failed to process images: {str(e)}", err=True)
+        raise click.Abort()
+
+
+# fmt: off
+@cli.command()
+@click.argument('input_paths', type=click.Path(exists=True, dir_okay=False, path_type=Path), nargs=-1, required=True)
+@click.argument('output_dir', type=click.Path(path_type=Path))
+@click.option('--format', '-f', type=click.Choice(['rgb', 'hex']), default='rgb',
+              help='Output format for color values')
+# fmt: on
+def encode(input_paths: tuple[Path, ...], output_dir: Path, format: str):
+    """Encode images into text representation.
+
+    Multiple images can be encoded at once, each saved as a .pzq file:
+    poziq encode image1.png image2.png output_dir/ -f hex
+    """
+    try:
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        success = 0
+        for path in input_paths:
+            try:
+                encoded = encoder.encode_image(path, format)
+                output_path = output_dir / f"{path.stem}.pzq"
+                output_path.write_text(encoded)
+                click.echo(f"Encoded {path.name} -> {output_path}")
+                success += 1
+            except Exception as e:
+                click.echo(f"Failed to encode {path.name}: {str(e)}", err=True)
+
+        click.echo(
+            f"\nSuccessfully encoded {success}/{len(input_paths)} images to {output_dir}"
+        )
+
+    except Exception as e:
+        click.echo(f"Error: {str(e)}", err=True)
+        raise click.Abort()
+
+
+# fmt: off
+@cli.command()
+@click.argument('input_paths', type=click.Path(exists=True, dir_okay=False, path_type=Path), nargs=-1, required=True)
+@click.argument('output_dir', type=click.Path(path_type=Path))
+# fmt: on
+def decode(input_paths: tuple[Path, ...], output_dir: Path):
+    """Decode .pzq files back to images.
+
+    Multiple .pzq files can be decoded at once:
+    poziq decode encoded1.pzq encoded2.pzq output_dir/
+    """
+    try:
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        success = 0
+        for path in input_paths:
+            if path.suffix.lower() != ".pzq":
+                raise ValueError("Input file must have .pzq extension")
+
+            encoded = path.read_text()
+            img = encoder.decode_image(encoded)
+            output_path = output_dir / f"{path.stem}.png"
+            img.save(output_path)
+            click.echo(f"Decoded {path.name} -> {output_path}")
+            success += 1
+
+        click.echo(
+            f"\nSuccessfully decoded {success}/{len(input_paths)} files to {output_dir}"
+        )
+
+    except Exception as e:
+        click.echo(f"Error: {str(e)}", err=True)
         raise click.Abort()
 
 
